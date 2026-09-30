@@ -113,6 +113,26 @@
         "domain",
         "storage"
       ]
+    },
+    {
+      "id": "run-handover-log",
+      "name": "Append shift-handover entries across the run lifecycle",
+      "entry": "POST /v1/runs/{id}/handover",
+      "steps": [
+        "append a handover entry with sequence, author, and message to an existing run",
+        "stamp each entry with its author, receipt time, and associated run state",
+        "reject duplicate appends, stale versions, empty fields, and terminal writes",
+        "read the same ordered log from run detail and the run list"
+      ],
+      "success": "returns the run with one new versioned, chronologically ordered handover entry",
+      "failure": "returns a stable not-found, revision, sequence, validation, or terminal-state error without partial writes",
+      "verification": "the check issues real HTTP requests through completion and abort and compares detail with list output",
+      "module_ids": [
+        "httpapi",
+        "service",
+        "domain",
+        "storage"
+      ]
     }
   ]
 }

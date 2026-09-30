@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type RunState string
 
@@ -24,6 +27,7 @@ type FermentationRun struct {
 	StartedAt      *time.Time           `json:"started_at,omitempty"`
 	EndedAt        *time.Time           `json:"ended_at,omitempty"`
 	Observations   []GravityObservation `json:"observations"`
+	HandoverLog    []HandoverEntry      `json:"handover_log"`
 	Metrics        *RunMetrics          `json:"metrics,omitempty"`
 	Version        int64                `json:"version"`
 	CreatedAt      time.Time            `json:"created_at"`
@@ -33,6 +37,7 @@ type FermentationRun struct {
 func (r FermentationRun) Clone() FermentationRun {
 	cloned := r
 	cloned.Observations = append([]GravityObservation(nil), r.Observations...)
+	cloned.HandoverLog = append([]HandoverEntry(nil), r.HandoverLog...)
 	if r.VesselID != nil {
 		value := *r.VesselID
 		cloned.VesselID = &value
@@ -119,6 +124,44 @@ func (r *FermentationRun) AddObservation(observation GravityObservation) error {
 	return nil
 }
 
+func (r *FermentationRun) AppendHandover(sequence int, author, message string, now time.Time) error {
+	if r.IsTerminal() {
+		return NewError(CodeRunState,
+			"completed or aborted runs accept no handover entries")
+	}
+	if err := ValidateHandoverAuthor(author); err != nil {
+		return err
+	}
+	if err := ValidateHandoverMessage(message); err != nil {
+		return err
+	}
+	if len(r.HandoverLog) >= maxHandoverEntries {
+		return NewError(CodeHandoverConflict,
+			"run cannot contain more than 1000 handover entries")
+	}
+	expected := len(r.HandoverLog) + 1
+	if sequence != expected {
+		return NewError(CodeHandoverConflict,
+			"handover sequence must be contiguous and begin at 1")
+	}
+	stamp := now.UTC()
+	entry := HandoverEntry{
+		Sequence:  expected,
+		Author:    strings.TrimSpace(author),
+		Message:   strings.TrimSpace(message),
+		RunState:  r.State,
+		CreatedAt: stamp,
+	}
+	r.HandoverLog = append(r.HandoverLog, entry)
+	r.UpdatedAt = stamp
+	r.Version++
+	return nil
+}
+
+func (r FermentationRun) IsTerminal() bool {
+	return r.State == RunCompleted || r.State == RunAborted
+}
+
 func (r *FermentationRun) BeginConditioning(now time.Time) error {
 	if r.State != RunFermenting {
 		return NewError(CodeRunState, "only a fermenting run can enter conditioning")
@@ -153,7 +196,7 @@ func (r *FermentationRun) Complete(originalGravity float64, now time.Time) error
 }
 
 func (r *FermentationRun) Abort(now time.Time) error {
-	if r.State == RunCompleted || r.State == RunAborted {
+	if r.IsTerminal() {
 		return NewError(CodeRunState, "completed or aborted runs cannot be aborted")
 	}
 	stamp := now.UTC()

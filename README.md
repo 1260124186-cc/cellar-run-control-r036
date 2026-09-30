@@ -90,6 +90,7 @@ Run workflow:
 - `POST /v1/runs/{id}/reserve`
 - `POST /v1/runs/{id}/start`
 - `POST /v1/runs/{id}/observations`
+- `POST /v1/runs/{id}/handover`
 - `POST /v1/runs/{id}/conditioning`
 - `POST /v1/runs/{id}/complete`
 - `POST /v1/runs/{id}/abort`
@@ -107,6 +108,27 @@ shape:
 }
 ```
 
+### Shift Handover Log
+
+`POST /v1/runs/{id}/handover` appends one sequenced entry to a run:
+
+```json
+{
+  "sequence": 1,
+  "author": "A. Operator",
+  "message": "night shift: vessel reserved, yeast pitched"
+}
+```
+
+The service records the author and message, stamps `created_at`, and captures
+the run's current state as `run_state`. Sequences are contiguous from 1, so a
+replayed request is rejected with `handover_conflict` and never duplicates an
+entry. A stale `X-Expected-Version` is rejected with `revision_conflict`; an
+unknown run returns `run_not_found`. Completed and aborted runs reject new
+entries with `invalid_run_state`, but the existing log stays queryable through
+`GET /v1/runs/{id}` and `GET /v1/runs`, where it is always presented in append
+order.
+
 ## Workflow Checks
 
 Run each production workflow check separately:
@@ -115,6 +137,7 @@ Run each production workflow check separately:
 go run ./cmd/fermentctl check formula-approval
 go run ./cmd/fermentctl check vessel-run-lifecycle
 go run ./cmd/fermentctl check observations-completion
+go run ./cmd/fermentctl check run-handover-log
 ```
 
 Each check creates a temporary snapshot directory, starts the real HTTP

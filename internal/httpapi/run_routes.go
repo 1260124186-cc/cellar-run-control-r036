@@ -26,6 +26,12 @@ type observationRequest struct {
 	Note         string    `json:"note"`
 }
 
+type handoverRequest struct {
+	Sequence int    `json:"sequence"`
+	Author   string `json:"author"`
+	Message  string `json:"message"`
+}
+
 func registerRunRoutes(mux *http.ServeMux, app *service.Service) {
 	mux.HandleFunc("POST /v1/runs", func(response http.ResponseWriter, request *http.Request) {
 		body, err := decodeJSON[createRunRequest](response, request)
@@ -108,6 +114,28 @@ func registerRunRoutes(mux *http.ServeMux, app *service.Service) {
 			TemperatureC: body.TemperatureC,
 			ObservedAt:   body.ObservedAt,
 			Note:         body.Note,
+		})
+		if err != nil {
+			writeDomainError(response, err)
+			return
+		}
+		writeJSON(response, http.StatusOK, run)
+	})
+
+	mux.HandleFunc("POST /v1/runs/{id}/handover", func(response http.ResponseWriter, request *http.Request) {
+		body, err := decodeJSON[handoverRequest](response, request)
+		if !handleDecode(response, err) {
+			return
+		}
+		expected, err := expectedVersion(request)
+		if !handleDecode(response, err) {
+			return
+		}
+		run, err := app.AppendHandover(request.PathValue("id"), service.HandoverInput{
+			ExpectedVersion: expected,
+			Sequence:        body.Sequence,
+			Author:          body.Author,
+			Message:         body.Message,
 		})
 		if err != nil {
 			writeDomainError(response, err)

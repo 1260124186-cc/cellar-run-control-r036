@@ -78,6 +78,12 @@ func normalizeSnapshot(value domain.Snapshot) (domain.Snapshot, error) {
 	if value.RunIndex == nil {
 		value.RunIndex = map[string]string{}
 	}
+	for id, run := range value.Runs {
+		if run.HandoverLog == nil {
+			run.HandoverLog = []domain.HandoverEntry{}
+			value.Runs[id] = run
+		}
+	}
 	if err := validateIndexes(value); err != nil {
 		return domain.Snapshot{}, err
 	}

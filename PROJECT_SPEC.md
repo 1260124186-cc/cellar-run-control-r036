@@ -65,7 +65,8 @@ States are `available`, `reserved`, `in_use`, `cleaning`, and `retired`.
 
 A run contains an identifier, unique run code, an approved formula identifier,
 an optional vessel identifier, planned volume, notes, lifecycle state,
-timetable, ordered observations, final metrics, version, and timestamps.
+timetable, ordered observations, ordered handover log, final metrics, version,
+and timestamps.
 
 States are `planned`, `reserved`, `fermenting`, `conditioning`, `completed`,
 and `aborted`.
@@ -84,6 +85,23 @@ and `aborted`.
   cleaning.
 - Completed and aborted runs are immutable.
 - A run can carry at most 500 observations.
+
+### HandoverEntry
+
+A handover entry belongs to one run and contains a contiguous sequence number,
+author, message, the associated run state captured at acceptance, and a
+server-stamped receipt time.
+
+- Appending requires that the run exists and, when `X-Expected-Version` is
+  supplied, that it matches the current run version.
+- The author is required, trimmed, and at most 100 characters.
+- The message is required, trimmed, and at most 2000 characters.
+- Entry sequences are contiguous and start at 1; replaying an append never
+  duplicates an entry.
+- Entries are returned only in append order in both run detail and the run list.
+- A run can carry at most 1000 handover entries.
+- Completed and aborted runs reject new entries with a stable state error, but
+  their existing handover log remains readable.
 
 ### GravityObservation
 
@@ -150,6 +168,24 @@ transitions return stable failures without changing persisted state.
 This path crosses HTTP protocol handling, application orchestration, numeric
 domain rules, and snapshot storage.
 
+### 4. Shift Handover Log
+
+Public entry points are:
+
+- `POST /v1/runs/{id}/handover`
+- `GET /v1/runs/{id}`
+- `GET /v1/runs`
+
+The on-duty operator appends a sequenced handover entry naming the author and
+message while the run moves through its lifecycle. The service stamps the
+entry's receipt time and the run state it was written against, and returns the
+same ordered log in the run detail and list views. Missing runs, stale expected
+versions, replayed sequence numbers, blank fields, and appends after completion
+or abort return stable failures without changing the persisted run.
+
+This path crosses HTTP protocol handling, application orchestration, domain
+guards, and snapshot storage.
+
 ## Modules
 
 - `cmd/fermentctl`: executable entry point for the HTTP service and bounded
@@ -210,13 +246,14 @@ task owns systematic tests for validation boundaries, state transitions,
 numeric calculations, stale revisions, storage failures, and concurrent
 reservation attempts.
 
-The current build command is `go build ./...`. Three bounded production checks
+The current build command is `go build ./...`. Four bounded production checks
 start the real HTTP handler, issue real JSON requests, check success and failure
 behavior, and exit without external services:
 
 - `go run ./cmd/fermentctl check formula-approval`
 - `go run ./cmd/fermentctl check vessel-run-lifecycle`
 - `go run ./cmd/fermentctl check observations-completion`
+- `go run ./cmd/fermentctl check run-handover-log`
 
 ## Scope Limits
 

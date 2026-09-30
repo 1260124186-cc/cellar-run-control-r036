@@ -27,6 +27,7 @@ type runView struct {
 	Version      int64                       `json:"version"`
 	VesselID     *string                     `json:"vessel_id"`
 	Observations []domain.GravityObservation `json:"observations"`
+	HandoverLog  []domain.HandoverEntry      `json:"handover_log"`
 	Metrics      *domain.RunMetrics          `json:"metrics"`
 }
 
