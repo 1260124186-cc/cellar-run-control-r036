@@ -113,6 +113,26 @@
         "domain",
         "storage"
       ]
+    },
+    {
+      "id": "run-handovers",
+      "name": "Append and query a chronological shift-handover log",
+      "entry": "POST /v1/runs/{id}/handovers",
+      "steps": [
+        "append authored, timestamped entries with the current run version",
+        "reject repeated client tokens and stale versions without writes",
+        "reject appends after completion or abort while keeping the log readable",
+        "read the same ordered log from the log endpoint, detail, and list"
+      ],
+      "success": "returns entries in contiguous sequence with the state frozen at write time",
+      "failure": "returns a stable invalid input, revision, handover, or run state error without changing the run",
+      "verification": "the check issues real HTTP requests across two runs reaching both terminal states",
+      "module_ids": [
+        "httpapi",
+        "service",
+        "domain",
+        "storage"
+      ]
     }
   ]
 }

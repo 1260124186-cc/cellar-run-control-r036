@@ -69,6 +69,12 @@ func normalizeSnapshot(value domain.Snapshot) (domain.Snapshot, error) {
 	if value.Runs == nil {
 		value.Runs = map[string]domain.FermentationRun{}
 	}
+	for id, run := range value.Runs {
+		if run.HandoverLog == nil {
+			run.HandoverLog = []domain.HandoverEntry{}
+			value.Runs[id] = run
+		}
+	}
 	if value.NameIndex == nil {
 		value.NameIndex = map[string]string{}
 	}
@@ -117,6 +123,9 @@ func validateIndexes(value domain.Snapshot) error {
 			return fmt.Errorf("run index contains a duplicate code")
 		}
 		expectedRuns[run.Code] = id
+		if err := domain.ValidateHandoverLog(run.HandoverLog); err != nil {
+			return fmt.Errorf("run %s handover log is invalid: %w", id, err)
+		}
 	}
 	return compareIndexes("run code", value.RunIndex, expectedRuns)
 }

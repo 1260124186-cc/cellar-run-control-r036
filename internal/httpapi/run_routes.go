@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/domain"
 	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/service"
 )
 
@@ -24,6 +25,12 @@ type observationRequest struct {
 	TemperatureC float64   `json:"temperature_c"`
 	ObservedAt   time.Time `json:"observed_at"`
 	Note         string    `json:"note"`
+}
+
+type handoverRequest struct {
+	Author      string `json:"author"`
+	Message     string `json:"message"`
+	ClientToken string `json:"client_token"`
 }
 
 func registerRunRoutes(mux *http.ServeMux, app *service.Service) {
@@ -114,6 +121,43 @@ func registerRunRoutes(mux *http.ServeMux, app *service.Service) {
 			return
 		}
 		writeJSON(response, http.StatusOK, run)
+	})
+
+	mux.HandleFunc("GET /v1/runs/{id}/handovers", func(response http.ResponseWriter, request *http.Request) {
+		entries, err := app.ListHandovers(request.PathValue("id"))
+		if err != nil {
+			writeDomainError(response, err)
+			return
+		}
+		writeJSON(response, http.StatusOK, map[string]any{"handover_log": entries})
+	})
+
+	mux.HandleFunc("POST /v1/runs/{id}/handovers", func(response http.ResponseWriter, request *http.Request) {
+		body, err := decodeJSON[handoverRequest](response, request)
+		if !handleDecode(response, err) {
+			return
+		}
+		expected, err := expectedVersion(request)
+		if !handleDecode(response, err) {
+			return
+		}
+		if expected == nil {
+			writeDomainError(response, domain.FieldError(domain.CodeInvalidInput,
+				"X-Expected-Version",
+				"handover appends require the current run version"))
+			return
+		}
+		run, entry, err := app.AppendHandover(request.PathValue("id"), service.HandoverInput{
+			ExpectedVersion: expected,
+			Author:          body.Author,
+			Message:         body.Message,
+			ClientToken:     body.ClientToken,
+		})
+		if err != nil {
+			writeDomainError(response, err)
+			return
+		}
+		writeJSON(response, http.StatusOK, map[string]any{"run": run, "entry": entry})
 	})
 
 	mux.HandleFunc("POST /v1/runs/{id}/conditioning", func(response http.ResponseWriter, request *http.Request) {

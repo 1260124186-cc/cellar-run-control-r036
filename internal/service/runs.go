@@ -23,6 +23,7 @@ func (s *Service) CreateRun(input CreateRunInput) (domain.FermentationRun, error
 		Notes:          input.Notes,
 		State:          domain.RunPlanned,
 		Observations:   []domain.GravityObservation{},
+		HandoverLog:    []domain.HandoverEntry{},
 		Version:        1,
 		CreatedAt:      now,
 		UpdatedAt:      now,

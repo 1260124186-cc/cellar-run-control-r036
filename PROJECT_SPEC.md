@@ -65,7 +65,8 @@ States are `available`, `reserved`, `in_use`, `cleaning`, and `retired`.
 
 A run contains an identifier, unique run code, an approved formula identifier,
 an optional vessel identifier, planned volume, notes, lifecycle state,
-timetable, ordered observations, final metrics, version, and timestamps.
+timetable, ordered observations, an ordered shift-handover log, final metrics,
+version, and timestamps.
 
 States are `planned`, `reserved`, `fermenting`, `conditioning`, `completed`,
 and `aborted`.
@@ -84,6 +85,27 @@ and `aborted`.
   cleaning.
 - Completed and aborted runs are immutable.
 - A run can carry at most 500 observations.
+- A run carries at most 1000 handover entries.
+
+### HandoverEntry
+
+A handover entry contains a server-assigned identifier, a contiguous sequence
+number beginning at one, the on-duty author, the handover message, the run
+state associated with the entry at write time, an optional client token, and a
+creation timestamp.
+
+- Author and message are required after whitespace trimming.
+- Author is at most 100 characters and message is at most 2000 characters.
+- Entries append strictly in chronological, contiguous sequence order.
+- The associated state is frozen at append time and is never rewritten by
+  later transitions.
+- An append requires `X-Expected-Version` to match the current run version.
+- An optional `client_token` rejects a repeated submission with
+  `handover_conflict`.
+- Appends are rejected for missing runs, stale versions, and completed or
+  aborted runs; a rejected write never changes run facts.
+- The log stays readable after completion or abort through run detail, the run
+  list, and the dedicated log endpoint.
 
 ### GravityObservation
 
@@ -149,6 +171,26 @@ transitions return stable failures without changing persisted state.
 
 This path crosses HTTP protocol handling, application orchestration, numeric
 domain rules, and snapshot storage.
+
+### 4. Shift Handover Log
+
+Public entry points are:
+
+- `POST /v1/runs/{id}/handovers`
+- `GET /v1/runs/{id}/handovers`
+- `GET /v1/runs/{id}`
+- `GET /v1/runs`
+
+The client appends timestamped, authored handover notes while a run advances
+through its lifecycle. Each append must present the current run version and
+may carry a client token. A repeated token, a stale version, a missing run,
+and an append after completion or abort fail without changing the run. The
+log presents the same entries in the same sequence order in the dedicated log
+response, run detail, and the run list, and remains queryable once the run is
+terminal.
+
+This path crosses HTTP protocol handling, application orchestration, domain
+guards, and snapshot storage.
 
 ## Modules
 
@@ -217,6 +259,7 @@ behavior, and exit without external services:
 - `go run ./cmd/fermentctl check formula-approval`
 - `go run ./cmd/fermentctl check vessel-run-lifecycle`
 - `go run ./cmd/fermentctl check observations-completion`
+- `go run ./cmd/fermentctl check run-handovers`
 
 ## Scope Limits
 

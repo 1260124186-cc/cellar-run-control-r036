@@ -27,12 +27,35 @@ type runView struct {
 	Version      int64                       `json:"version"`
 	VesselID     *string                     `json:"vessel_id"`
 	Observations []domain.GravityObservation `json:"observations"`
+	HandoverLog  []handoverEntryView         `json:"handover_log"`
 	Metrics      *domain.RunMetrics          `json:"metrics"`
 }
 
 type pairView struct {
 	Run    runView    `json:"run"`
 	Vessel vesselView `json:"vessel"`
+}
+
+type handoverEntryView struct {
+	ID        string          `json:"id"`
+	Sequence  int             `json:"sequence"`
+	Author    string          `json:"author"`
+	Message   string          `json:"message"`
+	State     domain.RunState `json:"state"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+type handoverAppendView struct {
+	Run   runView           `json:"run"`
+	Entry handoverEntryView `json:"entry"`
+}
+
+type handoverLogView struct {
+	HandoverLog []handoverEntryView `json:"handover_log"`
+}
+
+type runListView struct {
+	Runs []runView `json:"runs"`
 }
 
 func createFormulaPayload(name string) map[string]any {

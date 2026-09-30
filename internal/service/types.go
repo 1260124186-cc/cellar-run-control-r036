@@ -50,6 +50,13 @@ type ObservationInput struct {
 	Note         string
 }
 
+type HandoverInput struct {
+	ExpectedVersion *int64
+	Author          string
+	Message         string
+	ClientToken     string
+}
+
 type FinishCleaningInput struct {
 	ExpectedVersion *int64
 }

@@ -94,6 +94,20 @@ Run workflow:
 - `POST /v1/runs/{id}/complete`
 - `POST /v1/runs/{id}/abort`
 
+Run handover log:
+
+- `POST /v1/runs/{id}/handovers`
+- `GET /v1/runs/{id}/handovers`
+
+A handover entry records the on-duty author, the message, the run state that
+was current at write time, a server-assigned sequence, and a creation
+timestamp. Entries append in chronological order and the same log is embedded
+in run detail and run list responses. A successful append requires
+`X-Expected-Version` to match the current run version. An optional
+`client_token` rejects a repeated submission as `handover_conflict`. Completed
+and aborted runs reject further appends (`invalid_run_state`) but their logs
+remain readable.
+
 Writes accept an optional `X-Expected-Version` header. Errors use a stable
 shape:
 
@@ -115,6 +129,7 @@ Run each production workflow check separately:
 go run ./cmd/fermentctl check formula-approval
 go run ./cmd/fermentctl check vessel-run-lifecycle
 go run ./cmd/fermentctl check observations-completion
+go run ./cmd/fermentctl check run-handovers
 ```
 
 Each check creates a temporary snapshot directory, starts the real HTTP
@@ -144,6 +159,7 @@ for later engineering evaluation:
 - atomic vessel reservation and release;
 - run state transition guards;
 - observation sequence and time ordering;
+- handover log ordering, version gating, and idempotent submission;
 - gravity movement and range checks;
 - metric calculation and rounding;
 - durable snapshot replacement and startup normalization.

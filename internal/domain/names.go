@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	identifierPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`)
-	vesselCodePattern = regexp.MustCompile(`^[A-Z0-9][A-Z0-9-]{2,31}$`)
-	runCodePattern    = regexp.MustCompile(`^[A-Z0-9][A-Z0-9-]{3,47}$`)
+	identifierPattern  = regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`)
+	vesselCodePattern  = regexp.MustCompile(`^[A-Z0-9][A-Z0-9-]{2,31}$`)
+	runCodePattern     = regexp.MustCompile(`^[A-Z0-9][A-Z0-9-]{3,47}$`)
+	clientTokenPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{2,63}$`)
 )
 
 func NewID(prefix string) (string, error) {
@@ -64,6 +65,16 @@ func ValidateRunCode(value, field string) error {
 	if !runCodePattern.MatchString(value) {
 		return FieldError(CodeInvalidInput, field,
 			"must contain 4 to 48 uppercase letters, digits, or hyphens")
+	}
+	return nil
+}
+
+// ValidateClientToken checks a caller-supplied idempotency token used to
+// reject repeated handover submissions.
+func ValidateClientToken(value, field string) error {
+	if !clientTokenPattern.MatchString(value) {
+		return FieldError(CodeInvalidInput, field,
+			"must contain 3 to 64 letters, digits, or hyphens and start with a letter or digit")
 	}
 	return nil
 }
